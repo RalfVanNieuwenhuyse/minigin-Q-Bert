@@ -10,6 +10,8 @@
 #include "Renderer.h"
 #include "ResourceManager.h"
 
+#include "GTimer.h"	
+
 SDL_Window* g_window{};
 
 void PrintSDLVersion()
@@ -78,17 +80,29 @@ dae::Minigin::~Minigin()
 void dae::Minigin::Run(const std::function<void()>& load)
 {
 	load();
-
+	auto& timer = GTimer::GetInstance();
 	auto& renderer = Renderer::GetInstance();
 	auto& sceneManager = SceneManager::GetInstance();
 	auto& input = InputManager::GetInstance();
 
 	// todo: this update loop could use some work.
 	bool doContinue = true;
+	float lag{ 0 };
 	while (doContinue)
 	{
+		lag += timer.GetDeltaTime();
+		timer.Update();
 		doContinue = input.ProcessInput();
+		while (lag >= timer.GetTimeStep())
+		{
+			sceneManager.Update();
+			lag -= timer.GetTimeStep();
+		}
+		
 		sceneManager.Update();
 		renderer.Render();
+
+		auto sleepTime = timer.GetLastTimeStamp() + std::chrono::milliseconds(timer.GetFrameTime()) - std::chrono::high_resolution_clock::now();
+		std::this_thread::sleep_for(sleepTime);
 	}
 }
